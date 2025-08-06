@@ -1,8 +1,15 @@
+import re
 from sqlalchemy.orm import Session
 from . import models, schemas
 from passlib.context import CryptContext
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def is_valid_email(email: str) -> bool:
+    """Basit email validasyonu"""
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(pattern, email) is not None
 
 
 def verify_password(plain_password, hashed_password):
@@ -31,6 +38,10 @@ def get_users(db: Session, skip: int = 0, limit: int = 100):
 
 
 def create_user(db: Session, user: schemas.UserCreate):
+    # Email validasyonu
+    if not is_valid_email(user.email):
+        raise ValueError("Geçersiz email formatı")
+    
     hashed_password = get_password_hash(user.password)
     db_user = models.User(
         email=user.email,
@@ -50,6 +61,11 @@ def update_user(db: Session, user_id: int, user_update: schemas.UserUpdate):
         return None
     
     update_data = user_update.dict(exclude_unset=True)
+    
+    # Email validasyonu (eğer email güncelleniyorsa)
+    if "email" in update_data and not is_valid_email(update_data["email"]):
+        raise ValueError("Geçersiz email formatı")
+    
     if "password" in update_data:
         update_data["hashed_password"] = get_password_hash(update_data.pop("password"))
     
